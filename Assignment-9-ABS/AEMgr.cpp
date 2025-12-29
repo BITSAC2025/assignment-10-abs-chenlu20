@@ -593,8 +593,6 @@
 // }
 
 
-
-
 /**
  * AEMgr.cpp
  * @author kisslune 
@@ -675,19 +673,12 @@ AEState AbstractExecutionMgr::test2()
     NodeID b = getNodeID("b");
     // TODO: put your code in the following braces
     //@{
-    // 注册堆对象并让 p 指向它
     getNodeID("malloc");
-    AddressValue heapAddr(getMemObjAddress("malloc"));
-    as[p] = heapAddr;
-    
-    // 存储 0 到 *p，然后读取到 q
+    as[p] = AddressValue(getMemObjAddress("malloc"));
     as.storeValue(p, IntervalValue(0, 0));
     as[q] = as.loadValue(p);
-    
-    // 存储 3 到 *p，计算 b = *p + 1
     as.storeValue(p, IntervalValue(3, 3));
-    IntervalValue pContent = as.loadValue(p).getInterval();
-    as[b] = pContent + IntervalValue(1, 1);
+    as[b] = as.loadValue(p).getInterval() + IntervalValue(1, 1);
     //@}
 
     as.printAbstractState();
@@ -717,21 +708,12 @@ AEState AbstractExecutionMgr::test3()
     NodeID x = getNodeID("x");
     // TODO: put your code in the following braces
     //@{
-    // 分配两块内存
     getNodeID("malloc1");
     getNodeID("malloc2");
-    
-    // p 和 q 分别指向不同的堆对象
     as[p] = AddressValue(getMemObjAddress("malloc1"));
     as[q] = AddressValue(getMemObjAddress("malloc2"));
-    
-    // *p = q: 把 q 的地址存到 p 指向的位置
     as.storeValue(p, as[q]);
-    
-    // *q = 10
     as.storeValue(q, IntervalValue(10, 10));
-    
-    // r = *p, x = *r: 两次解引用
     as[r] = as.loadValue(p);
     as[x] = as.loadValue(r);
     //@}
@@ -764,19 +746,11 @@ AEState AbstractExecutionMgr::test4()
     // TODO: put your code in the following braces
     //@{
     getNodeID("malloc");
-    
-    // p 指向数组基地址
     as[p] = AddressValue(getMemObjAddress("malloc"));
-    
-    // x 和 y 分别指向数组的第 0 和第 1 个元素
     as[x] = AddressValue(getGepObjAddress("malloc", 0));
     as[y] = AddressValue(getGepObjAddress("malloc", 1));
-    
-    // 存储值到数组元素
     as.storeValue(x, IntervalValue(10, 10));
     as.storeValue(y, IntervalValue(11, 11));
-    
-    // 读取数组元素的值
     as[a] = as.loadValue(x);
     as[b] = as.loadValue(y);
     //@}
@@ -819,27 +793,15 @@ AEState AbstractExecutionMgr::test5()
     //@{
     getNodeID("malloc1");
     getNodeID("malloc2");
-    
-    // 分配结构体和整数的内存
     as[p] = AddressValue(getMemObjAddress("malloc1"));
     as[x] = AddressValue(getMemObjAddress("malloc2"));
-    
-    // *x = 5
     as.storeValue(x, IntervalValue(5, 5));
-    
-    // q 指向结构体的 f0 字段 (偏移 0)
     as[q] = AddressValue(getGepObjAddress("malloc1", 0));
     as.storeValue(q, IntervalValue(10, 10));
-    
-    // r 指向结构体的 f1 字段 (偏移 1)
     as[r] = AddressValue(getGepObjAddress("malloc1", 1));
     as.storeValue(r, as[x]);
-    
-    // y = *r 然后计算 z = *q + *y
     as[y] = as.loadValue(r);
-    IntervalValue valFromQ = as.loadValue(q).getInterval();
-    IntervalValue valFromY = as.loadValue(y).getInterval();
-    as[z] = valFromQ + valFromY;
+    as[z] = as.loadValue(q).getInterval() + as.loadValue(y).getInterval();
     //@}
 
     as.printAbstractState();
@@ -863,29 +825,26 @@ AEState AbstractExecutionMgr::test6()
     NodeID arg = getNodeID("arg");
     // TODO: put your code in the following braces
     //@{
-    // 初始化 arg 为区间 [4, 10]
     as[arg] = IntervalValue(4, 10);
-    
-    // a = arg + 1 得到 [5, 11]
     as[a] = as[arg].getInterval() + IntervalValue(1, 1);
     as[b] = IntervalValue(5, 5);
 
-    // 处理 true 分支: a > 10 意味着 a = 11
-    AEState truePath = as;
-    IntervalValue aInTrue = truePath[a].getInterval();
-    aInTrue.meet_with(IntervalValue(11, 11));
-    truePath[a] = aInTrue;
-    truePath[b] = truePath[a].getInterval();
+    // true branch: a > 10
+    AEState taken = as;
+    IntervalValue iv_taken = taken[a].getInterval();
+    iv_taken.meet_with(IntervalValue(11, 11));
+    taken[a] = iv_taken;
+    taken[b] = taken[a].getInterval();
 
-    // 处理 false 分支: a <= 10 意味着 a 在 [5, 10]
-    AEState falsePath = as;
-    IntervalValue aInFalse = falsePath[a].getInterval();
-    aInFalse.meet_with(IntervalValue(5, 10));
-    falsePath[a] = aInFalse;
+    // false branch: a <= 10
+    AEState not_taken = as;
+    IntervalValue iv_not_taken = not_taken[a].getInterval();
+    iv_not_taken.meet_with(IntervalValue(5, 10));
+    not_taken[a] = iv_not_taken;
 
-    // 合并两条路径
-    as = truePath;
-    as.joinWith(falsePath);
+    // merge
+    as = taken;
+    as.joinWith(not_taken);
     //@}
 
     as.printAbstractState();
@@ -911,14 +870,11 @@ AEState AbstractExecutionMgr::test7()
     NodeID y = getNodeID("y");
     // TODO: put your code in the following braces
     //@{
-    // 模拟函数调用，使用临时变量 k
     NodeID k = getNodeID("k");
-    
-    // 第一次调用 foo(2)
+    // call foo(2)
     as[k] = IntervalValue(2, 2);
     as[y] = as[k].getInterval();
-    
-    // 第二次调用 foo(3)
+    // call foo(3)
     as[k] = IntervalValue(3, 3);
     as[x] = as[k].getInterval();
     //@}
@@ -947,39 +903,37 @@ AEState AbstractExecutionMgr::test8()
     NodeID x = getNodeID("x");
     // TODO: put your code in the following braces
     //@{
-    // 入口点初始化
+    // init entry
     entry_as[x] = IntervalValue(20, 20);
     head_as = entry_as;
 
-    // 延迟 widening: 先做几次普通迭代
-    u32_t iter = 0;
-    while (iter < widen_delay) {
+    // delay widening iterations
+    for (u32_t i = 0; i < widen_delay; i++) {
         body_as = head_as;
         body_as[x] = body_as[x].getInterval() + IntervalValue(-1, -1);
-        
-        AEState merged = entry_as;
-        merged.joinWith(body_as);
-        head_as = merged;
-        iter++;
+
+        AEState new_head = entry_as;
+        new_head.joinWith(body_as);
+        head_as = new_head;
     }
 
-    // 第一次 widening
+    // first widening
     body_as = head_as;
     body_as[x] = body_as[x].getInterval() + IntervalValue(-1, -1);
-    
-    AEState merged = entry_as;
-    merged.joinWith(body_as);
-    head_as = head_as.widening(merged);
 
-    // 第二次 widening 确保不动点
+    AEState new_head = entry_as;
+    new_head.joinWith(body_as);
+    head_as = head_as.widening(new_head);
+
+    // second widening
     body_as = head_as;
     body_as[x] = body_as[x].getInterval() + IntervalValue(-1, -1);
-    
-    merged = entry_as;
-    merged.joinWith(body_as);
-    head_as = head_as.widening(merged);
 
-    // 循环退出: x <= 0 即 x = 0
+    new_head = entry_as;
+    new_head.joinWith(body_as);
+    head_as = head_as.widening(new_head);
+
+    // loop exit
     exit_as = head_as;
     exit_as[x] = IntervalValue(0, 0);
     //@}
