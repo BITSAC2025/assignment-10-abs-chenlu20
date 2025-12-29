@@ -393,7 +393,7 @@
     
 //     //@{
 //     // 策略3: 使用as.getGepObjAddrs而非getGepObjAddress
-//     // （这是与同学最大的不同！）
+
 //     as[p] = AddressValue(getMemObjAddress("malloc"));
     
 //     // x = &p[0]: 使用getGepObjAddrs方法（在AbstractState上调用）
@@ -445,7 +445,7 @@
 //     NodeID z = getNodeID("z");
     
 //     //@{
-//     // 策略4: 使用as.getGepObjAddrs（不同于同学的getGepObjAddress）
+//     // 策略4: 使用as.getGepObjAddrs
 //     as[p] = AddressValue(getMemObjAddress("malloc1"));
 //     as[x] = AddressValue(getMemObjAddress("malloc2"));
     
